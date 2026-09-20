@@ -14,9 +14,10 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "HOST=0.0.0.0 react-scripts start",
+    "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:api": "node --test server/dia-search.test.mjs",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -37,5 +38,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:5000"
+  "proxy": "https://dealhunt-frontend.pages.dev"
 }
