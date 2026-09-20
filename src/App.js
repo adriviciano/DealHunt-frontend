@@ -8,7 +8,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [listaCompra, setListaCompra] = useState({ mercadona: [], dia: [] });
   const [isListaVisible, setIsListaVisible] = useState(false);
-  const server = 'https://backend-dealhunt.adriviciano.com';
+  const server = (process.env.REACT_APP_API_URL || 'https://backend-dealhunt.adriviciano.com').replace(/\/+$/, '');
 
   const cargarProductosMercadona = async (nombreProducto) => {
     try {
