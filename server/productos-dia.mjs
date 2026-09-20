@@ -1,4 +1,4 @@
-[
+export default [
   {
     "categoria": "Jamón cocido, lacón, fiambres y mortadela",
     "nombre": "Bacon en tiras Nuestra Alacena de Dia bandeja 2 x 100 g",
@@ -35419,4 +35419,4 @@
     "precio_por_unidad": "(19,90 €/kg)",
     "imagen": "https://www.dia.es/product_images/104447/104447_ISO_0_ES.jpg?imwidth=392"
   }
-]
+];

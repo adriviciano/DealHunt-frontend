@@ -14,7 +14,7 @@ Cloudflare compila también `functions/` y publica la API mediante Pages Functio
 
 ## Backend temporal
 
-`GET /api/dia/:palabra` reproduce la búsqueda por nombre del servidor Express original. El catálogo `server/productos-dia.json` es una copia de `DealHunt-backend/server/dia/productos_dia.json` tomada el 20 de septiembre de 2026; esa fecha no indica cuándo se actualizaron los precios. No se actualiza automáticamente. Para actualizarlo, copiar de nuevo el catálogo y desplegar.
+`GET /api/dia/:palabra` reproduce la búsqueda por nombre del servidor Express original. El catálogo `server/productos-dia.mjs` es una copia de `DealHunt-backend/server/dia/productos_dia.json` tomada el 20 de septiembre de 2026; esa fecha no indica cuándo se actualizaron los precios. No se actualiza automáticamente. Para actualizarlo, copiar de nuevo el catálogo como módulo JavaScript (export default seguido del JSON) y desplegar.
 
 La API comparte dominio con el frontend y no necesita CORS. El catálogo se incluye en la función, fuera de los archivos estáticos y del paquete del navegador. `_routes.json` limita la ejecución de funciones a `/api/*`.
 
@@ -39,3 +39,4 @@ npm run build
 Para desarrollar las funciones localmente, compilar y usar `npx wrangler pages dev build` desde este directorio.
 
 Documentación: https://developers.cloudflare.com/pages/functions/get-started/
+

@@ -1,4 +1,4 @@
-import productos from './productos-dia.json' with { type: 'json' };
+import productos from './productos-dia.mjs';
 
 // Conserva la búsqueda del backend original sobre su catálogo local.
 export function buscarProductosDia(palabra) {
