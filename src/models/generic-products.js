@@ -6,7 +6,7 @@ export const genericProducts = [
   { id: 'leche-semi', name: 'Leche semidesnatada', query: 'leche semidesnatada', match: /^leche semidesnatada\b/, exclude: /sin lactosa|fresca|proteina|calcio/ },
   { id: 'leche-desnatada', name: 'Leche desnatada', query: 'leche desnatada', match: /^leche desnatada\b/, exclude: /sin lactosa|fresca|proteina|calcio/ },
   { id: 'leche-entera-sin-lactosa', name: 'Leche entera sin lactosa', query: 'leche entera', match: /^leche entera\b.*sin lactosa/, exclude: /fresca|proteina|calcio/ },
-  { id: 'pan-molde', name: 'Pan de molde blanco', query: 'pan', aliases: ['pan'], match: /^pan (de )?molde\b/, exclude: /integral|semilla|sin gluten|sin corteza|brioche|rustico|espelta|centeno/ },
+  { id: 'pan-molde', name: 'Pan de molde blanco', query: 'pan', aliases: ['pan'], match: /^pan (de )?molde\b/, exclude: /integral|semilla|sin gluten|sin corteza|brioche|rustico|espelta|centeno|maiz|proteina/ },
   { id: 'pan-integral', name: 'Pan de molde integral', query: 'pan', match: /^pan (de )?molde\b.*integral/, exclude: /semilla|sin gluten|sin corteza|espelta|centeno/ },
   { id: 'cafe-soluble', name: 'Café soluble', query: 'café soluble', match: /^cafe soluble\b/, exclude: /descafeinado|cappuccino|capuchino|mezcla|torrefacto|con leche/ },
   { id: 'cafe-soluble-descafeinado', name: 'Café soluble descafeinado', query: 'café soluble descafeinado', match: /^cafe soluble\b.*descafeinado/, exclude: /cappuccino|capuchino|con leche/ },
