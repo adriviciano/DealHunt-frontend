@@ -5,9 +5,11 @@ import ProductCard from './components/product-card';
 import ShoppingList from './components/shopping-list';
 import { searchProducts } from './services/product-service';
 import { money, priceNumber, productId, readShoppingList } from './utils/products';
+import { genericProducts, genericById, inferGeneric, matchesGeneric, resolveGeneric } from './models/generic-products';
+import { useBasketComparison } from './services/use-basket-comparison';
 
 const categories = [
-  { name: 'Lácteos', query: 'leche', icon: 'milk', color: 'bg-[#EDF2F8] text-[#597A9A]' },
+  { name: 'Lácteos', query: 'leche entera', icon: 'milk', color: 'bg-[#EDF2F8] text-[#597A9A]' },
   { name: 'Fruta y verdura', query: 'tomate', icon: 'apple', color: 'bg-[#F0F4E5] text-[#6F873F]' },
   { name: 'Pan y cereales', query: 'pan', icon: 'bread', color: 'bg-[#FAF0DF] text-[#B18A50]' },
   { name: 'Huevos', query: 'huevos', icon: 'egg', color: 'bg-[#F7EBE6] text-[#B88067]' },
@@ -17,7 +19,8 @@ const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outli
 
 export default function App() {
   const [input, setInput] = useState('');
-  const [query, setQuery] = useState('leche');
+  const [query, setQuery] = useState('leche entera');
+  const [genericId, setGenericId] = useState('leche-entera');
   const [retry, setRetry] = useState(0);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +36,8 @@ export default function App() {
   const infoRef = useRef(null);
   const resultsRef = useRef(null);
   const searchRef = useRef(null);
+  const generic = genericById(genericId);
+  const { baskets, retryComparison } = useBasketComparison(items);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,11 +66,11 @@ export default function App() {
   }, [toast]);
 
   const filtered = useMemo(() => {
-    const selected = products.filter(product => store === 'Todos' || product.supermercado === store);
+    const selected = products.filter(product => (!generic || matchesGeneric(product, generic)) && (store === 'Todos' || product.supermercado === store));
     return [...selected].sort((a, b) => sort === 'name' ? a.nombre.localeCompare(b.nombre, 'es') :
       sort === 'price-desc' ? priceNumber(b.precio_unitario) - priceNumber(a.precio_unitario) :
       priceNumber(a.precio_unitario) - priceNumber(b.precio_unitario));
-  }, [products, store, sort]);
+  }, [products, store, sort, generic]);
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
   const total = items.reduce((sum, item) => sum + priceNumber(item.precio_unitario) * item.quantity, 0);
   const quantities = new Map(items.map(item => [productId(item), item.quantity]));
@@ -75,7 +80,9 @@ export default function App() {
     const next = value.trim();
     if (!next) { searchRef.current.focus(); return; }
     setInput(next);
-    setQuery(next);
+    const selectedGeneric = resolveGeneric(next);
+    setGenericId(selectedGeneric?.id || '');
+    setQuery(selectedGeneric?.query || next);
     setRetry(previous => previous + 1);
     setLimit(12);
     setStore('Todos');
@@ -88,7 +95,16 @@ export default function App() {
       return previous.map(item => productId(item) === productId(product) ? { ...item, quantity: item.quantity + delta } : item).filter(item => item.quantity > 0);
     });
   };
-  const add = product => { changeQuantity(product, 1); setToast(`${product.nombre} añadido a tu lista`); };
+  const add = product => {
+    const family = generic || inferGeneric(product);
+    const choice = { ...product, genericId: family?.id, genericName: family?.name };
+    setItems(previous => {
+      const existing = family ? previous.find(item => (item.genericId || inferGeneric(item)?.id) === family.id) : previous.find(item => productId(item) === productId(product));
+      if (!existing) return [...previous, { ...choice, quantity: 1 }];
+      return previous.map(item => item === existing ? { ...choice, quantity: productId(existing) === productId(product) ? existing.quantity + 1 : existing.quantity } : item);
+    });
+    setToast(`${family?.name || product.nombre}: ${product.supermercado === 'Dia' ? 'DIA' : product.supermercado} elegido`);
+  };
   const openList = () => dialogRef.current.showModal();
   const scrollToProducts = () => resultsRef.current.scrollIntoView({ behavior: 'smooth' });
 
@@ -123,11 +139,11 @@ export default function App() {
           <div className="relative z-10 max-w-[590px] xl:max-w-[650px]">
             <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-[#D6E2CB] bg-white/60 px-3 py-1.5 text-[10px] font-semibold tracking-wide text-forest"><Icon name="spark" className="h-3 w-3" /> TU ALIADO EN EL SUPERMERCADO</span>
             <h2 id="hero-title" className="text-[34px] font-bold leading-[1.13] tracking-[-1.5px] sm:text-[44px]">Lo mismo de siempre.<br /><span className="text-[#55764A]">Una compra más inteligente.</span></h2>
-            <p className="mb-7 mt-4 max-w-md text-sm leading-6 text-[#61705B]">Encuentra lo que necesitas, compara precios y crea<br className="hidden sm:block" /> tu lista. Todo en un mismo lugar.</p>
+            <p className="mb-7 mt-4 max-w-md text-sm leading-6 text-[#61705B]">Elige tus productos genéricos y tu súper favorito.<br className="hidden sm:block" /> Compara tu cesta con toda la compra en cada súper.</p>
             <form onSubmit={event => { event.preventDefault(); search(input); }} role="search" className="flex max-w-[535px] items-center gap-2 rounded-2xl border border-[#D9E2CE] bg-white p-2 shadow-soft focus-within:ring-2 focus-within:ring-forest/40">
               <Icon name="search" className="ml-2 hidden h-5 w-5 shrink-0 text-muted sm:block" /><label htmlFor="product-search" className="sr-only">Buscar productos</label><input id="product-search" ref={searchRef} value={input} onChange={event => setInput(event.target.value)} placeholder="¿Qué necesitas? Leche, arroz, café…" className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-sm outline-none placeholder:text-[#8B9589]" /><button type="submit" className={`flex items-center gap-2 rounded-xl bg-forest px-4 py-3 text-sm font-semibold text-white transition hover:bg-ink sm:px-5 ${focus}`}><span>Comparar</span><Icon name="arrow" className="hidden h-4 w-4 sm:block" /></button>
             </form>
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]"><span className="mr-1 text-muted">Prueba con:</span>{['Leche', 'Huevos', 'Aceite de oliva'].map(value => <button key={value} onClick={() => search(value.toLowerCase())} className={`rounded-full border border-[#D6E0CB] px-3 py-1.5 text-[#54694A] hover:bg-white ${focus}`}>{value}</button>)}</div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]"><span className="mr-1 text-muted">Prueba con:</span>{['Leche entera', 'Pan', 'Café soluble'].map(value => <button key={value} onClick={() => search(value.toLowerCase())} className={`rounded-full border border-[#D6E0CB] px-3 py-1.5 text-[#54694A] hover:bg-white ${focus}`}>{value}</button>)}</div>
           </div>
           <div className="pointer-events-none absolute -right-5 bottom-0 hidden h-[330px] w-[380px] opacity-90 min-[1350px]:block 2xl:right-2"><GroceryArt /></div>
         </section>
@@ -136,9 +152,9 @@ export default function App() {
           {categories.map(item => <button key={item.name} onClick={() => search(item.query)} aria-pressed={query === item.query} className={`flex min-h-[80px] flex-col items-center justify-center gap-2 rounded-2xl border p-3 text-xs font-medium transition hover:-translate-y-0.5 hover:shadow-soft motion-reduce:transform-none xl:flex-row xl:justify-start xl:gap-3 xl:p-4 ${query === item.query ? 'border-[#B7C9A6] bg-white' : 'border-line bg-white/60'} ${focus}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.color}`}><Icon name={item.icon} className="h-6 w-6" /></span><span>{item.name}</span></button>)}
         </section>
 
-        <div className="grid items-start gap-6 min-[1450px]:grid-cols-[minmax(0,1fr)_260px]">
+        <section aria-labelledby="generic-title" className="mb-8 rounded-2xl border border-line bg-white p-5"><h2 id="generic-title" className="text-lg font-bold">¿Qué necesitas comprar?</h2><p className="mb-4 mt-1 text-sm text-muted">Selecciona un producto genérico y elige la opción del supermercado que prefieras. Después compararemos las tres cestas.</p><div className="flex flex-wrap gap-2">{genericProducts.map(item => <button key={item.id} onClick={() => search(item.name)} aria-pressed={genericId === item.id} className={`rounded-xl border px-3 py-2.5 text-xs font-medium ${genericId === item.id ? 'border-forest bg-forest text-white' : 'border-line hover:bg-mint'} ${focus}`}>{item.name}</button>)}</div></section><div className="grid items-start gap-6 min-[1450px]:grid-cols-[minmax(0,1fr)_260px]">
           <section ref={resultsRef} id="productos" aria-labelledby="results-title" className="min-w-0 scroll-mt-6">
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><div className="mb-1 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#CF9556]" /><p className="text-[10px] font-semibold tracking-[.13em] text-muted">EXPLORA Y COMPARA</p></div><h2 id="results-title" className="text-xl font-bold tracking-tight">{category ? `${category.name} para tu día a día` : `Resultados para “${query}”`}</h2></div><p aria-live="polite" className="text-xs text-muted">{loading ? 'Buscando productos…' : `${filtered.length} productos encontrados`}</p></div>
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><div className="mb-1 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#CF9556]" /><p className="text-[10px] font-semibold tracking-[.13em] text-muted">EXPLORA Y COMPARA</p></div><h2 id="results-title" className="text-xl font-bold tracking-tight">{generic ? `Elige tu ${generic.name.toLowerCase()}` : category ? `${category.name} para tu día a día` : `Resultados para “${query}”`}</h2></div><p aria-live="polite" className="text-xs text-muted">{loading ? 'Buscando productos…' : `${filtered.length} productos encontrados`}</p></div>
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div aria-label="Filtrar por supermercado" className="flex gap-1 rounded-xl border border-line bg-[#EEF1E9] p-1">{['Todos', 'Mercadona', 'Dia'].map(value => <button key={value} onClick={() => { setStore(value); setLimit(12); }} aria-pressed={store === value} className={`rounded-lg px-3 py-2 text-xs font-medium transition sm:px-4 ${store === value ? 'bg-white text-forest shadow-sm' : 'text-muted hover:text-forest'} ${focus}`}>{value === 'Dia' ? 'DIA' : value}</button>)}</div><label className="flex items-center gap-2 text-xs text-muted"><span className="sr-only sm:not-sr-only">Ordenar:</span><select aria-label="Ordenar productos" value={sort} onChange={event => setSort(event.target.value)} className={`max-w-full rounded-lg border border-line bg-white px-2 py-2.5 text-xs text-ink ${focus}`}><option value="price">Precio: menor a mayor</option><option value="price-desc">Precio: mayor a menor</option><option value="name">Nombre: A–Z</option></select></label></div>
             {(warning || error) && <div role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">{error || warning}{error && <button onClick={() => setRetry(value => value + 1)} className={`ml-3 font-bold underline ${focus}`}>Reintentar</button>}</div>}
             {loading ? <div aria-label="Cargando productos" aria-busy="true" className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 min-[1450px]:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-[320px] animate-pulse rounded-2xl border border-line bg-white p-5 motion-reduce:animate-none"><div className="h-4 w-20 rounded bg-mint" /><div className="my-5 h-36 rounded-xl bg-cream" /><div className="h-3 rounded bg-cream" /><div className="mt-3 h-3 w-2/3 rounded bg-cream" /></div>)}</div> : <>
@@ -148,7 +164,7 @@ export default function App() {
             </>}
           </section>
 
-          <aside aria-label="Resumen de tu compra" className="sticky top-6 hidden rounded-2xl border border-line bg-white p-5 min-[1450px]:block"><div className="flex items-center gap-2 border-b border-line pb-4"><Icon name="bag" className="h-5 w-5 text-forest" /><h2 className="text-sm font-bold">Tu próxima compra</h2><span className="ml-auto text-xs text-muted">{count}</span></div>{items.length ? <div className="py-5">{items.slice(0, 3).map(item => <div key={productId(item)} className="mb-4 flex items-start gap-3 text-xs"><span className="rounded-md bg-mint px-2 py-1 text-forest">{item.quantity}×</span><p className="flex-1 leading-5">{item.nombre}</p></div>)}{items.length > 3 && <p className="text-xs text-muted">Y {items.length - 3} productos más…</p>}<div className="mt-5 flex items-center justify-between border-t border-line pt-4 text-sm"><span>Total estimado</span><strong>{money(total)}</strong></div></div> : <div className="py-8 text-center"><span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cream"><Icon name="basket" className="h-7 w-7 text-[#8A9E7D]" /></span><h3 className="text-sm font-semibold">Una lista, todo en orden</h3><p className="mt-2 text-xs leading-5 text-muted">Añade los productos que te gustan<br />y llévalos contigo al súper.</p></div>}<button onClick={openList} className={`flex w-full items-center justify-center gap-2 rounded-xl bg-mint py-3 text-xs font-semibold text-forest hover:bg-[#E1EACF] ${focus}`}>Ver mi lista<Icon name="arrow" className="h-4 w-4" /></button><p className="mt-4 text-center text-[10px] text-muted">Se guarda en este dispositivo</p></aside>
+          <aside aria-label="Resumen de tu compra" className="sticky top-6 hidden rounded-2xl border border-line bg-white p-5 min-[1450px]:block"><div className="flex items-center gap-2 border-b border-line pb-4"><Icon name="bag" className="h-5 w-5 text-forest" /><h2 className="text-sm font-bold">Tu selección</h2><span className="ml-auto text-xs text-muted">{count}</span></div>{items.length ? <div className="py-5">{items.slice(0, 3).map(item => <div key={productId(item)} className="mb-4 flex items-start gap-3 text-xs"><span className="rounded-md bg-mint px-2 py-1 text-forest">{item.quantity}×</span><p className="flex-1 leading-5">{item.nombre}</p></div>)}{items.length > 3 && <p className="text-xs text-muted">Y {items.length - 3} productos más…</p>}<div className="mt-5 flex items-center justify-between border-t border-line pt-4 text-sm"><span>Total estimado</span><strong>{money(total)}</strong></div></div> : <div className="py-8 text-center"><span className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cream"><Icon name="basket" className="h-7 w-7 text-[#8A9E7D]" /></span><h3 className="text-sm font-semibold">Una lista, todo en orden</h3><p className="mt-2 text-xs leading-5 text-muted">Elige un producto por necesidad<br />y compara toda la compra.</p></div>}<button onClick={openList} className={`flex w-full items-center justify-center gap-2 rounded-xl bg-mint py-3 text-xs font-semibold text-forest hover:bg-[#E1EACF] ${focus}`}>Comparar mis cestas<Icon name="arrow" className="h-4 w-4" /></button><p className="mt-4 text-center text-[10px] text-muted">Se guarda en este dispositivo</p></aside>
         </div>
 
         <div className="mt-10 flex items-start gap-3 rounded-xl border border-line bg-[#F0F2E9] px-4 py-3"><Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-muted" /><p className="text-[11px] leading-5 text-muted">Compara también el precio por litro, kilo o unidad y el tamaño del envase. Los precios pueden variar según tienda. El catálogo de DIA es histórico y todavía no se actualiza automáticamente.</p></div>
@@ -157,7 +173,7 @@ export default function App() {
     </div>
     <div role="status" aria-live="polite" className={`pointer-events-none fixed bottom-5 left-1/2 z-50 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl bg-forest px-5 py-3 text-sm text-white shadow-xl transition ${toast ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}><Icon name="check" className="h-5 w-5 shrink-0" /><span className="line-clamp-2">{toast}</span></div>
     {storageError && <p role="alert" className="fixed bottom-0 left-0 z-40 w-full bg-amber-100 p-2 text-center text-xs text-amber-900">La lista funciona durante esta sesión, pero tu navegador no permite guardarla.</p>}
-    <ShoppingList dialogRef={dialogRef} items={items} onQuantity={changeQuantity} total={total} />
-    <dialog ref={infoRef} aria-labelledby="info-title" className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-auto rounded-3xl bg-white p-7 text-ink backdrop:bg-ink/40 backdrop:backdrop-blur-sm"><div className="mb-5 flex items-center justify-between"><h2 id="info-title" className="text-xl font-bold">Compra con más información</h2><button autoFocus aria-label="Cerrar información" onClick={() => infoRef.current.close()} className={`rounded-full p-2 hover:bg-cream ${focus}`}><Icon name="close" /></button></div><ol className="space-y-5 text-sm leading-6 text-muted"><li><strong className="block text-ink">1. Busca lo que necesitas</strong>Consultamos Mercadona y el catálogo disponible de DIA.</li><li><strong className="block text-ink">2. Compara el formato y el precio</strong>El orden por precio usa el precio del producto completo. Consulta el precio por unidad para comparar envases del mismo tipo y tamaño. Los resultados no son necesariamente productos equivalentes.</li><li><strong className="block text-ink">3. Prepara tu lista</strong>Añade productos, ajusta cantidades y descarga tu lista. Se guarda únicamente en este navegador.</li></ol><p className="mt-6 rounded-xl bg-cream p-4 text-xs leading-5 text-muted">DealHunt es un comparador independiente. Los precios son orientativos y no están garantizados. DIA usa un catálogo histórico; Mercadona se consulta al buscar. No vendemos productos ni tramitamos pedidos.</p></dialog>
+    <ShoppingList dialogRef={dialogRef} items={items} onQuantity={changeQuantity} total={total} baskets={baskets} onRetry={retryComparison} />
+    <dialog ref={infoRef} aria-labelledby="info-title" className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-auto rounded-3xl bg-white p-7 text-ink backdrop:bg-ink/40 backdrop:backdrop-blur-sm"><div className="mb-5 flex items-center justify-between"><h2 id="info-title" className="text-xl font-bold">Compra con más información</h2><button autoFocus aria-label="Cerrar información" onClick={() => infoRef.current.close()} className={`rounded-full p-2 hover:bg-cream ${focus}`}><Icon name="close" /></button></div><ol className="space-y-5 text-sm leading-6 text-muted"><li><strong className="block text-ink">1. Busca lo que necesitas</strong>Elige un genérico (por ejemplo, leche entera) y después un producto concreto de Mercadona o DIA. Puedes cambiar de opción manteniendo la cantidad.</li><li><strong className="block text-ink">2. Compara el formato y el precio</strong>La cesta muestra tu selección mixta, todo en Mercadona y todo en DIA. Buscamos el mismo tipo y suficiente cantidad, con hasta un 10 % más si cambian los envases. Elegimos la combinación de envases más barata entre los equivalentes disponibles.</li><li><strong className="block text-ink">3. Prepara tu lista</strong>Ajusta las cantidades de tu selección y revisa los productos sustituidos. Si falta un equivalente, la cesta se marca incompleta y no calculamos ahorro global. Puedes descargar cualquiera de las tres listas.</li></ol><p className="mt-6 rounded-xl bg-cream p-4 text-xs leading-5 text-muted">DealHunt es un comparador independiente. Los precios son orientativos y no están garantizados. DIA usa un catálogo histórico; Mercadona se consulta al buscar. No vendemos productos ni tramitamos pedidos.</p></dialog>
   </div>;
 }

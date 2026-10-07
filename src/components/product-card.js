@@ -13,9 +13,9 @@ export default function ProductCard({ product, quantity, onAdd }) {
     </div>
     <h3 className="mb-2 min-h-10 text-sm font-semibold leading-5 text-ink">{product.nombre}</h3>
     <p className="mb-4 text-xs text-muted">{product.precio_por_unidad?.replace(/[()]/g, '').replace('.', ',')}</p>
-    <div className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3">
+    <div className="mt-auto flex flex-wrap items-end justify-between gap-2 border-t border-line pt-3">
       <div><span className="block text-[10px] text-muted">Precio del producto</span><span className="text-xl font-bold tracking-tight">{money(priceNumber(product.precio_unitario))}</span></div>
-      <button onClick={() => onAdd(product)} aria-label={`Añadir ${product.nombre} a la lista`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-mint text-forest transition hover:bg-forest hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"><Icon name="plus" /></button>
+      <button onClick={() => onAdd(product)} aria-label={`Añadir ${product.nombre} a la lista`} className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-mint px-3 text-xs font-semibold text-forest transition hover:bg-forest hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"><Icon name={quantity ? 'plus' : 'check'} className="h-4 w-4" />{quantity ? 'Otra unidad' : 'Elegir'}</button>
     </div>
   </article>;
 }

@@ -1,10 +1,22 @@
+import { productId } from '../utils/products';
+
 const server = (process.env.REACT_APP_API_URL || '/api').replace(/\/+$/, '');
 const mercadonaUrl = 'https://7uzjkl1dj0-dsn.algolia.net/1/indexes/products_prod_4315_es/query?x-algolia-application-id=7UZJKL1DJ0&x-algolia-api-key=9d8f2e39e90df472b4f2e559a116fe17';
 
 async function readJson(url, options) {
-  const response = await fetch(url, options);
-  if (!response.ok) throw new Error('No se pudo consultar el supermercado.');
-  return response.json();
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  if (options.signal?.aborted) cancel();
+  options.signal?.addEventListener('abort', cancel, { once: true });
+  const timer = setTimeout(cancel, 15000);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok) throw new Error('No se pudo consultar el supermercado.');
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', cancel);
+  }
 }
 
 export async function searchProducts(query, signal) {
@@ -32,6 +44,7 @@ export async function searchProducts(query, signal) {
   if (dia.status === 'rejected') missing.push('DIA');
   if (mercadona.status === 'rejected') missing.push('Mercadona');
   if (missing.length === 2) throw new Error('No hemos podido conectar con los supermercados. Prueba de nuevo en un momento.');
-  const products = [dia, mercadona].flatMap(result => result.status === 'fulfilled' ? result.value : []);
-  return { products, warning: missing.length ? `No hemos podido consultar ${missing.join(' y ')}. Te mostramos los resultados disponibles.` : '' };
+  const allProducts = [dia, mercadona].flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  const products = [...new Map(allProducts.map(product => [productId(product), product])).values()];
+  return { products, missingStores: [dia.status === 'rejected' ? 'Dia' : null, mercadona.status === 'rejected' ? 'Mercadona' : null].filter(Boolean), warning: missing.length ? `No hemos podido consultar ${missing.join(' y ')}. Te mostramos los resultados disponibles.` : '' };
 }

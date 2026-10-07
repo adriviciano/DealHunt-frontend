@@ -27,3 +27,14 @@ test('la ruta sirve JSON y rechaza otros métodos', async () => {
   assert.deepEqual(await response.json(), buscarProductosDia('leche'));
   assert.equal(onRequest().status, 405);
 });
+
+test('la ruta decodifica consultas con espacios y tildes', async () => {
+  const response = onRequestGet({ params: { palabra: 'leche%20entera' } });
+  const products = await response.json();
+  assert.ok(products.length > 0);
+  assert.deepEqual(products, buscarProductosDia('leche entera'));
+  const coffee = onRequestGet({ params: { palabra: 'caf%C3%A9%20soluble' } });
+  assert.ok((await coffee.json()).length > 0);
+  assert.deepEqual(buscarProductosDia('cafe soluble'), buscarProductosDia('café soluble'));
+  assert.equal(onRequestGet({ params: { palabra: '%ZZ' } }).status, 400);
+});
